@@ -1,4 +1,4 @@
-"""Shared helpers for the Mboa Weather Lambdas: responses, CORS, validation, cities."""
+"""Shared helpers for the Atmosphere Weather Lambdas: responses, CORS, validation, cities."""
 import hashlib
 import hmac
 import json
