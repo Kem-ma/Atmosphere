@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mboa Weather · Live weather across Cameroon</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-sky="clear-day">
+  <div class="sky" aria-hidden="true">
+    <div class="orb orb-a"></div>
+    <div class="orb orb-b"></div>
+    <div class="rain-layer"></div>
+  </div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="7" fill="#FFC93C"/><path d="M6 22h20" stroke="#2BB673" stroke-width="3" stroke-linecap="round"/><path d="M9 26h14" stroke="#E63946" stroke-width="3" stroke-linecap="round"/></svg>
+      </span>
+      <div>
+        <h1>Mboa Weather</h1>
+        <p>Live weather across Cameroon</p>
+      </div>
+    </div>
+    <div class="controls">
+      <label class="select-wrap">
+        <span class="sr-only">Choose a city</span>
+        <select id="citySelect"></select>
+      </label>
+      <div class="unit-toggle" role="group" aria-label="Temperature unit">
+        <button data-unit="C" class="active">°C</button>
+        <button data-unit="F">°F</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero glass" id="hero">
+      <div class="hero-left">
+        <div class="place">
+          <h2 id="cityName">—</h2>
+          <span class="region" id="cityRegion"></span>
+        </div>
+        <p class="clock" id="localTime">Loading…</p>
+        <div class="temp-row">
+          <span class="temp" id="tempNow">--</span>
+          <span class="feel-badge" id="feelBadge">—</span>
+        </div>
+        <p class="condition" id="conditionText">Fetching the sky…</p>
+        <p class="hilo" id="hiLo"></p>
+      </div>
+      <div class="hero-icon" id="heroIcon"></div>
+    </section>
+
+    <section class="stats" id="stats"></section>
+
+    <section class="glass panel">
+      <div class="panel-head">
+        <h3>Next 24 hours</h3>
+        <span class="muted" id="rainNote"></span>
+      </div>
+      <div class="hourly" id="hourly"></div>
+    </section>
+
+    <section class="glass panel" id="reportsPanel">
+      <div class="panel-head">
+        <div>
+          <h3>What locals see</h3>
+          <p class="muted" id="reportsSummary">Community weather reports</p>
+        </div>
+        <div class="reports-actions">
+          <div class="seg" role="group" aria-label="Report scope">
+            <button data-scope="city" class="active" id="scopeCity">This city</button>
+            <button data-scope="all">All Cameroon</button>
+          </div>
+          <button class="btn-primary" id="newReportBtn">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            Report weather
+          </button>
+        </div>
+      </div>
+      <div class="reports" id="reports"></div>
+    </section>
+
+    <div class="split">
+      <section class="glass panel">
+        <div class="panel-head"><h3>7-day forecast</h3></div>
+        <ul class="daily" id="daily"></ul>
+      </section>
+
+      <section class="glass panel">
+        <div class="panel-head">
+          <h3>Across Cameroon</h3>
+          <span class="muted">Right now · tap a city</span>
+        </div>
+        <div class="cities" id="cities"></div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <span>Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0)</span>
+    <span>Serverless backend on AWS SAM · Lambda · API Gateway · DynamoDB</span>
+  </footer>
+
+  <dialog id="reportDialog" class="glass-dialog">
+    <form id="reportForm" method="dialog" novalidate>
+      <div class="dialog-head">
+        <h3 id="dialogTitle">Report the weather</h3>
+        <button type="button" class="icon-btn" id="closeDialog" aria-label="Close">✕</button>
+      </div>
+
+      <label class="field">
+        <span>Town</span>
+        <select name="town" id="formTown" required></select>
+      </label>
+
+      <fieldset class="field">
+        <legend>What's the sky doing?</legend>
+        <div class="chips" id="conditionChips"></div>
+      </fieldset>
+
+      <div class="field-row">
+        <label class="field">
+          <span>Temperature you feel (°C) <em>optional</em></span>
+          <input type="number" name="temperature" min="-10" max="60" step="0.5" placeholder="e.g. 27" />
+        </label>
+        <label class="field">
+          <span>Your name <em>optional</em></span>
+          <input type="text" name="reporter" maxlength="40" placeholder="Anonymous" />
+        </label>
+      </div>
+
+      <label class="field">
+        <span>Note <em class="counter" id="noteCounter">0 / 280</em></span>
+        <textarea name="note" rows="3" maxlength="280" placeholder="e.g. Heavy rain in Bonabéri, roads flooding"></textarea>
+      </label>
+
+      <p class="form-error" id="formError" role="alert"></p>
+
+      <div class="dialog-actions">
+        <button type="button" class="btn-ghost" id="cancelDialog">Cancel</button>
+        <button type="submit" class="btn-primary" id="submitReport">Post report</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

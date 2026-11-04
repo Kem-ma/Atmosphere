@@ -1,0 +1,190 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  rest_weather_api
+
+  Mboa Weather: live Open-Meteo forecasts for Cameroon plus a CRUDL API
+  for community weather reports.
+
+Globals:
+  Function:
+    Runtime: python3.13
+    CodeUri: src/
+    Timeout: 5
+    MemorySize: 128
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref WeatherTable
+  Api:
+    EndpointConfiguration: REGIONAL
+    TracingEnabled: True
+    Cors:
+      AllowMethods: "'OPTIONS,GET,POST,PUT,DELETE'"
+      AllowHeaders: "'Content-Type,X-Edit-Token'"
+      AllowOrigin: "'*'"
+
+Resources:
+
+  WeatherApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: dev
+      Description: serverless api for weather application
+      # Add CORS headers to API Gateway's own errors (e.g. 403/429/502) so the browser can read them
+      GatewayResponses:
+        DEFAULT_4XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+        DEFAULT_5XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+  
+  WeatherTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+  CreateWeather:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: 'Lambda function inserts weather data into DynamoDB table'
+      FunctionName: CreateWeatherLambda
+      Handler: create_weather.lambda_handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /create-weather
+            Method: POST
+            RestApiId: !Ref WeatherApi
+    Connectors:
+      addWeatherItemToDB:
+        Properties:
+          Destination:
+            Id: WeatherTable
+          Permissions:
+            - Write
+            
+  UpdateWeather:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: 'Lambda function updates weather item in DynamoDB table'
+      FunctionName: UpdateWeatherLambda
+      Handler: update_weather.lambda_handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /weather/{id}
+            Method: PUT
+            RestApiId: !Ref WeatherApi
+    Connectors:
+      updateWeatherItemToDB:
+        Properties:
+          Destination:
+            Id: WeatherTable
+          Permissions:
+            - Read
+            - Write
+  
+  GetWeather:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: 'Lambda function retrieves weather item from DynamoDB table'
+      FunctionName: GetWeatherLambda
+      Handler: get_weather.lambda_handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /weather/{id}
+            Method: GET
+            RestApiId: !Ref WeatherApi
+    Connectors:
+      getWeatherItemToDB:
+        Properties:
+          Destination:
+            Id: WeatherTable
+          Permissions:
+            - Read
+  
+  DeleteWeather:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: 'Lambda function deletes weather item from DynamoDB table'
+      FunctionName: DeleteWeatherLambda
+      Handler: delete_weather.lambda_handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /weather/{id}
+            Method: DELETE
+            RestApiId: !Ref WeatherApi
+    Connectors:
+      deleteWeatherItemToDB:
+        Properties:
+          Destination:
+            Id: WeatherTable
+          Permissions:
+            - Read
+            - Write
+
+  GetAllWeather:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: 'Lambda function gets all weather items in DynamoDB table'
+      FunctionName: GetsAllWeatherLambda
+      Handler: get_weathers.lambda_handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /weathers
+            Method: GET
+            RestApiId: !Ref WeatherApi
+    Connectors:
+      getsWeatherItemToDB:
+        Properties:
+          Destination:
+            Id: WeatherTable
+          Permissions:
+            - Read
+
+  GetForecast:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: 'Lambda function returns live Open-Meteo forecasts for Cameroonian cities'
+      FunctionName: GetForecastLambda
+      Handler: get_forecast.lambda_handler
+      Timeout: 10
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /forecast
+            Method: GET
+            RestApiId: !Ref WeatherApi
+
+Outputs:
+  WeatherApiUrl:
+    Description: "API Gateway endpoint URL for dev stage"
+    Value: !Sub "https://${WeatherApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+
+  CreateWeatherFunction:
+    Description: "API Gateway endpoint Lambda Function ARN"
+    Value: !GetAtt CreateWeather.Arn
+  
+  UpdateWeatherFunction:
+    Description: "Update Weather Lambda Function ARN"
+    Value: !GetAtt UpdateWeather.Arn
