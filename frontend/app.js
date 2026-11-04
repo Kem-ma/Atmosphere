@@ -270,19 +270,41 @@ function tickClock() {
 }
 
 function showError(err) {
-  document.getElementById("conditionText").innerHTML = `<span class="error">Couldn't load weather: ${err.message}</span>`;
+  const el = document.getElementById("conditionText");
+  el.textContent = "";
+  const span = document.createElement("span");
+  span.className = "error";
+  span.textContent = `Couldn't load weather: ${err.message}`;
+  el.appendChild(span);
 }
 
+let citySeq = 0;
 async function selectCity(city) {
-  state.city = city;
+  const seq = ++citySeq;
+  const main = document.querySelector("main");
   document.getElementById("citySelect").value = CITIES.indexOf(city);
-  document.querySelector("main").classList.add("skeleton");
-  loadReports();
+  main.classList.add("skeleton");
   try {
-    state.forecast = await fetchForecast(city);
+    const forecast = await fetchForecast(city);
+    if (seq !== citySeq) return; // user already picked another city
+    state.city = city;
+    state.forecast = forecast;
     renderAll();
-  } catch (e) { showError(e); }
-  finally { document.querySelector("main").classList.remove("skeleton"); }
+    loadReports();
+  } catch (e) {
+    if (seq !== citySeq) return;
+    if (state.forecast) {
+      // Keep showing the city we already have rather than a broken page.
+      document.getElementById("citySelect").value = CITIES.indexOf(state.city);
+      toast(`Couldn't load ${city.name} right now, please try again.`, true);
+    } else {
+      state.city = city;
+      showError(e);
+      loadReports();
+    }
+  } finally {
+    if (seq === citySeq) main.classList.remove("skeleton");
+  }
 }
 
 // ---------- Community reports (CRUDL via the SAM API) ----------

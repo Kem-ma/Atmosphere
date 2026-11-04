@@ -149,3 +149,35 @@ def test_forecast_overview_and_errors(handlers):
     with mock.patch("urllib.request.urlopen", side_effect=OSError("down")):
         status, _, _ = call(handlers["get_forecast"], query={"city": "Bertoua"})
     assert status == 502
+
+
+def test_forecast_retries_after_a_hung_request(handlers):
+    payload = {"current": {"temperature_2m": 25.0}}
+
+    class Resp(io.BytesIO):
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    calls = {"n": 0}
+    def flaky(req, timeout):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise TimeoutError("The read operation timed out")
+        return Resp(json.dumps(payload).encode())
+
+    with mock.patch("urllib.request.urlopen", side_effect=flaky), mock.patch("time.sleep"):
+        status, data, _ = call(handlers["get_forecast"], query={"city": "Maroua"})
+    assert status == 200 and data == payload and calls["n"] == 2
+
+
+def test_forecast_serves_stale_cache_when_provider_is_down(handlers):
+    fc = handlers["get_forecast"]
+    payload = {"current": {"temperature_2m": 22.0}}
+    with _fake_urlopen(payload):
+        call(fc, query={"city": "Bamenda"})
+    # Age the cache past the fresh window but within the stale window
+    for key, (ts, data) in list(fc._cache.items()):
+        fc._cache[key] = (ts - fc.CACHE_SECONDS - 60, data)
+    with mock.patch("urllib.request.urlopen", side_effect=TimeoutError("timed out")), mock.patch("time.sleep"):
+        status, data, _ = call(fc, query={"city": "Bamenda"})
+    assert status == 200 and data == payload

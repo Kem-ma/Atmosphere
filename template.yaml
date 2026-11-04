@@ -167,7 +167,7 @@ Resources:
       Description: 'Lambda function returns live Open-Meteo forecasts for Cameroonian cities'
       FunctionName: GetForecastLambda
       Handler: get_forecast.lambda_handler
-      Timeout: 10
+      Timeout: 15
       Events:
         ApiEvent:
           Type: Api
